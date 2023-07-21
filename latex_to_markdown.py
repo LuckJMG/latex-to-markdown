@@ -24,6 +24,16 @@ TOKENS = {
     "subsection": ("### ", ""),
 }
 
+REPLACE_TOKENS = {
+    "\\maketitle\n": "",
+    "\\newpage": "---",
+    "\\[": "$$",
+    "\\]": "$$",
+}
+
+math_mode = False
+multiline_math_mode = False
+
 file_name = input("File name: ")
 input_file = open(file_name + ".tex", "r")
 output_file = open(file_name + ".md", "w")
@@ -32,12 +42,23 @@ token_stack = []
 text_stack = [""]
 
 for line in input_file:
+    for key, value in REPLACE_TOKENS.items():
+        if key in line:
+            line = line.replace(key, value)
+
     index = 0
     while index < len(line):
         char = line[index]
 
+        # Enter math mode
+        if char == "$":
+            if line[index+1] == "$":
+                multiline_math_mode = not multiline_math_mode
+            else:
+                math_mode = not math_mode
+
         # Enter new parenthesis
-        if char == "\\":
+        if char == "\\" and not math_mode and not multiline_math_mode:
             index += 1
             token = ""
 
@@ -54,13 +75,13 @@ for line in input_file:
             continue
 
         # Exit a parenthesis
-        if char == "}":
+        if char == "}" and not math_mode and not multiline_math_mode:
             token = token_stack.pop()
             text = text_stack.pop()
 
             text_stack[len(text_stack) - 1] += (
                 TOKENS[token][0] + text + TOKENS[token][1]
-            )  #! Only wrapping
+            )
             index += 1
             continue
 
