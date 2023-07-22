@@ -5,12 +5,13 @@ TOKENS = {
     "subsection": ("### ", ""),
     "includegraphics": ("![[", "]]"),
     "paragraph": ("", ""),
+    "tableofcontents": ("\\tableofcontents", ""),
 }
 
-REPLACE_TOKENS = {
+replace_tokens = {
     "\\maketitle\n": "",
-    "\\tableofcontents\n": "",  #! Create a table of contents
-    "\\newpage": "---\n",
+    "\\tableofcontents": "\\tableofcontents{}",
+    "\\newpage": "---",
     "\\[": "$$",
     "\\]": "$$",
 }
@@ -29,7 +30,8 @@ special_mode = []
 enumerate_count = []
 
 title = ""
-file_name = input("File name: ")
+table_of_contents = ""
+file_name = input("File name (without .tex): ")
 input_file = open(file_name + ".tex", "r")
 output_file = open(file_name + ".md", "w")
 
@@ -81,13 +83,13 @@ for line in input_file:
         break
 
 output_file.write("---\n\n")
-output_file.write(METADATA["title"] + title)
+replace_tokens["\\maketitle\n"] = METADATA["title"] + title + "\n"
 
 for line in input_file:
     if line == "\\end{document}" or line == "\\end{document}\n":
         break
 
-    for key, value in REPLACE_TOKENS.items():
+    for key, value in replace_tokens.items():
         if key in line:
             line = line.replace(key, value)
 
@@ -99,7 +101,7 @@ for line in input_file:
             case "enumerate":
                 enumerate_count[len(enumerate_count) - 1] += 1
                 line = line.replace(
-                    "\\item", f"{enumerate_count[len(enumerate_count)-1]}."
+                    "    \\item", f"{enumerate_count[len(enumerate_count)-1]}."
                 )
             case _:
                 line = ("> " * len(special_mode)) + line
@@ -148,8 +150,8 @@ for line in input_file:
                         pass
                     case _:
                         text_stack[len(text_stack) - 1] += (
-                            "> " * len(special_mode)
-                        ) + mode
+                            ("> " * len(special_mode)) + "[!info] " + mode
+                        )
 
                         if line[index + 1] == "[":
                             name = ""
@@ -186,13 +188,17 @@ for line in input_file:
             text_stack[len(text_stack) - 1] += (
                 TOKENS[token][0] + text + TOKENS[token][1]
             )
+
+            if "section" in token:
+                table_of_contents += ("\t" * token.count("sub")) + f"- [[#{text}]]\n"
+
             index += 1
             continue
 
         text_stack[len(text_stack) - 1] += char
         index += 1
 
-output_file.write(text_stack[0])
+output_file.write(text_stack[0].replace("\\tableofcontents", table_of_contents))
 
 input_file.close()
 output_file.close()
