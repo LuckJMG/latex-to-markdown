@@ -1,34 +1,16 @@
-import re
-
-# TOKENS = {
-#     "documentclass": "",
-#     "usepackage": "",
-#     "title": "# ",
-#     "author": "author: ",
-#     "date": "created date: ",
-#     "newtheorem": "",
-#     "begindocument": "",
-#     "enddocument": "",
-#     "maketitle": "",
-#     "talbeofcontents": "",
-#     "newpage": "---",
-#     "section": "## ",
-#     "[": "$$",
-#     "]": "$$",
-# }
-
 TOKENS = {
     "textbf": ("**", "**"),
     "title": ("# ", ""),
     "section": ("## ", ""),
     "subsection": ("### ", ""),
     "includegraphics": ("![[", "]]"),
+    "paragraph": ("", ""),
 }
 
 REPLACE_TOKENS = {
     "\\maketitle\n": "",
     "\\tableofcontents\n": "",  #! Create a table of contents
-    "\\newpage": "---",
+    "\\newpage": "---\n",
     "\\[": "$$",
     "\\]": "$$",
 }
@@ -43,6 +25,8 @@ METADATA = {
 
 math_mode = False
 multiline_math_mode = False
+special_mode = []
+enumerate_count = []
 
 title = ""
 file_name = input("File name: ")
@@ -100,9 +84,25 @@ output_file.write("---\n\n")
 output_file.write(METADATA["title"] + title)
 
 for line in input_file:
+    if line == "\\end{document}" or line == "\\end{document}\n":
+        break
+
     for key, value in REPLACE_TOKENS.items():
         if key in line:
             line = line.replace(key, value)
+
+    # Handle special modes
+    if len(special_mode) != 0:
+        match special_mode[len(special_mode) - 1]:
+            case "itemize":
+                line = line.replace("    \\item", "-")
+            case "enumerate":
+                enumerate_count[len(enumerate_count) - 1] += 1
+                line = line.replace(
+                    "\\item", f"{enumerate_count[len(enumerate_count)-1]}."
+                )
+            case _:
+                line = ("> " * len(special_mode)) + line
 
     index = 0
     while index < len(line):
@@ -128,9 +128,54 @@ for line in input_file:
                 index += 1
                 char = line[index]
 
+            index += 1
+
+            # Special modes
+            if token == "begin":
+                mode = ""
+                char = line[index]
+                while char != "}":
+                    mode += char
+                    index += 1
+                    char = line[index]
+
+                special_mode.append(mode)
+
+                match mode:
+                    case "enumerate":
+                        enumerate_count.append(0)
+                    case "itemize":
+                        pass
+                    case _:
+                        text_stack[len(text_stack) - 1] += (
+                            "> " * len(special_mode)
+                        ) + mode
+
+                        if line[index + 1] == "[":
+                            name = ""
+                            index += 2
+                            char = line[index]
+                            while char != "]":
+                                name += char
+                                index += 1
+                                char = line[index]
+
+                            text_stack[len(text_stack) - 1] += f" - {name}"
+
+                index += 1
+                continue
+
+            elif token == "end":
+                mode = special_mode.pop()
+
+                if mode == "enumerate":
+                    enumerate_count.pop()
+
+                index += len(mode) + 1
+                continue
+
             token_stack.append(token)
             text_stack.append("")
-            index += 1
             continue
 
         # Exit a parenthesis
@@ -151,4 +196,4 @@ output_file.write(text_stack[0])
 
 input_file.close()
 output_file.close()
-print("Convertion Completed")
+print(f"{file_name}.tex has been converted to {file_name}.md succesfully")
