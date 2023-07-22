@@ -22,6 +22,7 @@ TOKENS = {
     "title": ("# ", ""),
     "section": ("## ", ""),
     "subsection": ("### ", ""),
+    "includegraphics": ("![[", "]]"),
 }
 
 REPLACE_TOKENS = {
@@ -50,6 +51,9 @@ output_file = open(file_name + ".md", "w")
 
 token_stack = []
 text_stack = [""]
+
+# METADATA
+output_file.write("---\n")
 
 for line in input_file:
     index = 0
@@ -119,7 +123,8 @@ for line in input_file:
             # Get token
             char = line[index]
             while char != "{":
-                token += char
+                if token not in TOKENS.keys():
+                    token += char
                 index += 1
                 char = line[index]
 
